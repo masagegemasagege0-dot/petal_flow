@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bloom · Her Cycle Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        blush:  {50:'#FFF7F9',100:'#FFEEF3',200:'#FDD9E3',300:'#F9B8CB',400:'#F58FAD',500:'#ED6790',600:'#D94A78'},
+        wine:   {50:'#FBF0F3',100:'#F3D7DE',200:'#E3A9B6',300:'#C97A8D',400:'#A64E66',500:'#8A2F4A',600:'#6E1F38',700:'#55182C',800:'#3F1220',900:'#2B0C16'}
+      },
+      fontFamily: {
+        serif: ['"Cormorant Garamond"','serif'],
+        sans: ['Quicksand','sans-serif']
+      }
+    }
+  }
+}
+</script>
+<style>
+  html, body { overflow-x: clip; }
+  body { font-family:'Quicksand',sans-serif; }
+  .serif { font-family:'Cormorant Garamond',serif; }
+  .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .card-shadow { box-shadow: 0 10px 40px -12px rgba(110,31,56,.25); }
+  input[type="date"]::-webkit-calendar-picker-indicator { cursor:pointer; }
+  .phase-dot { box-shadow: 0 0 0 3px rgba(255,255,255,.9); }
+  .cal-day { width:100%; height:1.9rem; display:flex; align-items:center; justify-content:center;
+             border-radius:9999px; font-size:.65rem; font-weight:600; position:relative; transition:transform .15s ease, box-shadow .15s ease; cursor:default; }
+  @media (min-width:768px){ .cal-day { height:2.15rem; font-size:.7rem; } }
+  .cal-day.today { outline:2px solid #8A2F4A; outline-offset:2px; }
+  .cal-day:hover { transform: scale(1.08); }
+  .marker::after { content:''; position:absolute; bottom:3px; width:5px; height:5px; border-radius:9999px; background:#3F1220; }
+  .maybe-day { border:2px dashed #C97A8D; background:rgba(231,169,182,.15) !important; color:#A64E66 !important; }
+  .maybe-day:hover { background:rgba(231,169,182,.35) !important; }
+  .fade-in { animation: fadeUp .5s ease both; }
+  @keyframes fadeUp { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
+  .wheel-spin { transition: transform 1s cubic-bezier(.34,1.4,.4,1); }
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-thumb { background:#E3A9B6; border-radius:9999px; }
+</style>
+<base target="_blank">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blush-50 via-blush-100 to-wine-50 text-wine-800">
+
+<!-- Decorative soft blobs -->
+<div class="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+  <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blush-300/40 blur-3xl"></div>
+  <div class="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-wine-200/40 blur-3xl"></div>
+  <div class="absolute -bottom-32 left-1/4 w-[24rem] h-[24rem] rounded-full bg-blush-200/50 blur-3xl"></div>
+</div>
+
+<div class="relative w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 md:py-12">
+
+  <!-- Header -->
+  <header class="flex flex-col items-center md:flex-row md:items-end md:justify-between gap-4 mb-8 md:mb-10 fade-in text-center md:text-left">
+    <div>
+      <p class="serif italic text-wine-400 text-xl">for her, with love</p>
+      <h1 class="serif text-4xl sm:text-5xl md:text-6xl font-bold text-wine-700 leading-tight text-center md:text-left">Bloom <span class="text-blush-500">·</span> Cycle Tracker</h1>
+    </div>
+    <p id="todayLine" class="text-wine-500 font-medium"></p>
+  </header>
+
+  <!-- Setup / Settings Card -->
+  <section class="glass rounded-3xl card-shadow p-4 sm:p-6 md:p-8 mb-6 md:mb-8 fade-in">
+    <h2 class="serif text-2xl font-semibold text-wine-700 mb-4">Her Cycle Details</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <label class="block">
+        <span class="text-sm font-semibold text-wine-500">First day of last period</span>
+        <input id="inpStart" type="date" class="mt-1 w-full rounded-xl border border-blush-300 bg-white/80 px-3 py-2.5 text-wine-800 focus:outline-none focus:ring-2 focus:ring-wine-400">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-wine-500">Cycle length <span class="text-wine-300 font-normal">(days)</span></span>
+        <input id="inpCycle" type="number" min="20" max="45" value="28" class="mt-1 w-full rounded-xl border border-blush-300 bg-white/80 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-wine-400">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-wine-500">Period length · shortest <span class="text-wine-300 font-normal">(days)</span></span>
+        <input id="inpPeriodMin" type="number" min="2" max="10" value="5" class="mt-1 w-full rounded-xl border border-blush-300 bg-white/80 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-wine-400">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-wine-500">Period length · longest <span class="text-wine-300 font-normal">(days)</span></span>
+        <input id="inpPeriodMax" type="number" min="2" max="10" value="7" class="mt-1 w-full rounded-xl border border-blush-300 bg-white/80 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-wine-400">
+      </label>
+      <div class="sm:col-span-2 flex items-end">
+        <button id="btnSave" class="flex-1 rounded-xl bg-wine-600 hover:bg-wine-700 text-white font-bold py-2.5 transition shadow-lg shadow-wine-200">Save & Track ✿</button>
+      </div>
+    </div>
+    <p class="mt-3 text-xs text-wine-300">If her period varies (like 5–7 days), enter both. Solid burgundy days are her certain period days; the dashed days are when it may end. Predictions are guides, not guarantees.</p>
+  </section>
+
+  <!-- Phase Cards -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8" id="phaseCards"></section>
+
+  <!-- Current status + wheel -->
+  <section class="grid lg:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
+    <div class="lg:col-span-3 glass rounded-3xl card-shadow p-4 sm:p-6 md:p-8 fade-in">
+      <h2 class="serif text-2xl font-semibold text-wine-700 mb-1">Where is she today?</h2>
+      <p class="text-sm text-wine-400 mb-5">Live phase & countdown based on her saved cycle.</p>
+      <div class="flex flex-col items-center md:flex-row md:items-center gap-6">
+        <!-- mini wheel -->
+        <div class="relative w-36 h-36 md:w-40 md:h-40 shrink-0">
+          <svg viewBox="0 0 100 100" class="w-full h-full wheel-spin" id="wheelSvg"></svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span id="wheelPhase" class="text-xs font-bold text-wine-500 uppercase tracking-wide">—</span>
+            <span id="wheelDay" class="serif text-4xl font-bold text-wine-700">?</span>
+            <span class="text-[10px] text-wine-300">cycle day</span>
+          </div>
+        </div>
+        <div class="space-y-3 w-full md:w-auto text-center md:text-left" id="statusFacts"></div>
+      </div>
+    </div>
+
+    <!-- Upcoming predictions -->
+    <div class="lg:col-span-2 glass rounded-3xl card-shadow p-4 sm:p-6 md:p-8 fade-in">
+      <h2 class="serif text-2xl font-semibold text-wine-700 mb-4">Coming up</h2>
+      <ul id="predictList" class="space-y-3 text-sm"></ul>
+      <div class="mt-5 rounded-2xl bg-wine-50 border border-wine-100 p-4">
+        <p class="text-xs font-bold text-wine-500 mb-1">Fertile window</p>
+        <p id="fertileLine" class="text-sm text-wine-700 font-medium">—</p>
+        <p class="text-[11px] text-wine-300 mt-1">Higher chance of conceiving. “Safe days” outside this window are lower-risk, never zero-risk.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Calendar -->
+  <section class="glass rounded-3xl card-shadow p-4 md:p-6 fade-in">
+    <div class="flex items-center justify-between mb-3">
+      <button id="btnPrev" class="w-8 h-8 rounded-full bg-white border border-blush-300 text-wine-600 font-bold hover:bg-blush-100 transition">‹</button>
+      <h2 id="calTitle" class="serif text-xl md:text-2xl font-semibold text-wine-700"></h2>
+      <button id="btnNext" class="w-8 h-8 rounded-full bg-white border border-blush-300 text-wine-600 font-bold hover:bg-blush-100 transition">›</button>
+    </div>
+    <div class="grid grid-cols-7 gap-1 md:gap-1.5 mb-1.5 text-center text-[10px] font-bold text-wine-300 uppercase tracking-wider">
+      <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+    </div>
+    <div id="calGrid" class="grid grid-cols-7 gap-1 md:gap-1.5"></div>
+    <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-semibold text-wine-500" id="legend"></div>
+  </section>
+
+  <footer class="text-center mt-10 text-sm text-wine-300 serif italic">
+    made with love · Bloom celebrates every phase of her ✿
+    <p class="not-italic font-sans text-[11px] mt-2">This tracker is for wellness awareness only and is not a contraceptive or medical device.</p>
+  </footer>
+</div>
+
+<script>
+const LS_KEY = 'bloomCycle';
+const PHASES = {
+  menstruation: { name:'Menstruation', desc:'Period days',  bg:'bg-wine-600',  soft:'bg-wine-100 text-wine-600', text:'text-white', chip:'#6E1F38' },
+  follicular:   { name:'Follicular',   desc:'Energy rising',bg:'bg-blush-400', soft:'bg-blush-100 text-blush-600', text:'text-white', chip:'#F58FAD' },
+  ovulation:    { name:'Ovulation',    desc:'Peak fertile', bg:'bg-wine-400',  soft:'bg-wine-100 text-wine-500', text:'text-white', chip:'#C97A8D' },
+  luteal:       { name:'Luteal',       desc:'Winding down', bg:'bg-blush-200', soft:'bg-blush-50 text-wine-400', text:'text-wine-700', chip:'#FDD9E3' },
+  safe:         { name:'Safe days',    desc:'Lower-risk window', bg:'bg-white', soft:'bg-white text-wine-300', text:'text-wine-300', chip:'#ffffff' }
+};
+
+let state = { lastStart:null, cycleLen:28, periodMin:5, periodMax:7, viewDate:new Date() };
+
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if(s && s.lastStart){
+      state.lastStart = new Date(s.lastStart);
+      state.cycleLen = +s.cycleLen || 28;
+      state.periodMin = +s.periodMin || +s.periodLen || 5;
+      state.periodMax = +s.periodMax || +s.periodLen || 7;
+    }
+  }catch(e){}
+}
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify({
+    lastStart: state.lastStart.toISOString(), cycleLen: state.cycleLen, periodMin: state.periodMin, periodMax: state.periodMax
+  }));
+}
+
+/* Core math */
+function dayOfCycle(date){
+  const start = new Date(state.lastStart); start.setHours(0,0,0,0);
+  const d = new Date(date); d.setHours(0,0,0,0);
+  return Math.floor((d - start)/86400000) % state.cycleLen + 1;
+}
+function phaseForDay(cday){
+  const C = state.cycleLen, P = state.periodMax;
+  const ovu = C - 14;                    // estimated ovulation day
+  const fertileStart = ovu - 5, fertileEnd = ovu + 1;
+  if(cday <= P) return {key:'menstruation', ovu, fertileStart, fertileEnd};
+  if(cday >= fertileStart && cday <= fertileEnd) return {key:'ovulation', ovu, fertileStart, fertileEnd};
+  if(cday < fertileStart) return {key:'follicular', ovu, fertileStart, fertileEnd};
+  return {key:'luteal', ovu, fertileStart, fertileEnd};
+}
+function isMaybeDay(cday){ return state.lastStart && cday > state.periodMin && cday <= state.periodMax; }
+function isFertileDay(cday){ const i = phaseForDay(cday); return cday >= i.fertileStart && cday <= i.fertileEnd; }
+function cycleStartFor(date){
+  // most recent cycle start <= date
+  const ms = state.lastStart.getTime();
+  const d0 = new Date(date); d0.setHours(0,0,0,0);
+  const diff = Math.floor((d0 - ms)/86400000);
+  const n = Math.floor(diff/state.cycleLen);
+  const s = new Date(ms + n*state.cycleLen*86400000);
+  s.setHours(0,0,0,0);
+  if(s > d0) s.setDate(s.getDate() - state.cycleLen);
+  return s;
+}
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function fmt(d){ return d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}); }
+
+/* Render: phase cards */
+function renderCards(){
+  const el = document.getElementById('phaseCards');
+  const C = state.cycleLen, P = state.periodMax, ovu = C-14;
+  const pr = state.periodMin === state.periodMax ? `Day 1 – ${P}` : `Day 1 – ${state.periodMin} (sometimes to ${P})`;
+  const data = [
+    ['menstruation', pr, '🌸'],
+    ['follicular',   `Day ${P+1} – ${ovu-6}`, '🌷'],
+    ['ovulation',    `Day ${ovu-5} – ${ovu+1}`, '💗'],
+    ['luteal',       `Day ${ovu+2} – ${C}`, '🌙']
+  ];
+  el.innerHTML = data.map(([k,range,icon],i)=>`
+    <div class="rounded-3xl p-4 sm:p-5 ${PHASES[k].bg} ${PHASES[k].text} card-shadow fade-in" style="animation-delay:${i*80}ms">
+      <div class="text-2xl mb-2">${icon}</div>
+      <h3 class="serif text-xl font-bold">${PHASES[k].name}</h3>
+      <p class="text-xs opacity-80 mt-0.5">${PHASES[k].desc}</p>
+      <p class="text-[11px] mt-3 font-bold tracking-wide opacity-90">${range}</p>
+    </div>`).join('');
+}
+
+/* Render: status + wheel */
+function renderStatus(){
+  const facts = document.getElementById('statusFacts');
+  if(!state.lastStart){ facts.innerHTML = `<p class="text-wine-400">Add her cycle details above to begin ✿</p>`; wheel('—','?'); return; }
+  const today = new Date();
+  const cd = dayOfCycle(today);
+  const ph = phaseForDay(cd);
+  const P = PHASES[ph.key];
+  wheel(P.name, cd);
+
+  const start = cycleStartFor(today);
+  const nextStart = addDays(start, state.cycleLen);
+  const daysToNext = Math.round((nextStart - today)/86400000);
+  const ovuDate = addDays(start, ph.ovu - 1);
+  const endPeriod = addDays(start, state.periodMin - 1);
+  const endPeriodMaybe = addDays(start, state.periodMax - 1);
+  const prText = state.periodMin === state.periodMax
+      ? `${fmt(start)} → ${fmt(endPeriod)}`
+      : `${fmt(start)} → ${fmt(endPeriod)} <span class="text-wine-300">(sometimes to ${fmt(endPeriodMaybe)})</span>`;
+  const fertileStart = addDays(start, ph.fertileStart - 1);
+  const fertileEnd = addDays(start, ph.fertileEnd - 1);
+
+  facts.innerHTML = `
+    <div><span class="text-xs font-bold text-wine-300 uppercase tracking-wide">Today she is in</span>
+      <p class="serif text-2xl font-bold ${P.text==='text-wine-700'?'text-wine-700':'text-wine-600'}">${P.name} · Day ${cd}</p></div>
+    <div class="text-sm text-wine-500 space-y-1">
+      <p>🌸 Period: <b>${prText}</b></p>
+      <p>💗 Ovulation expected: <b>${fmt(ovuDate)}</b></p>
+      <p>🗓 Next period in <b>${daysToNext} day${daysToNext===1?'':'s'}</b> (${fmt(nextStart)})</p>
+    </div>`;
+
+  document.getElementById('fertileLine').textContent = `${fmt(fertileStart)} → ${fmt(fertileEnd)}`;
+
+  document.getElementById('predictList').innerHTML = `
+    <li class="flex items-center gap-3"><span class="w-3 h-3 rounded-full phase-dot" style="background:#F58FAD"></span>
+      <div><p class="font-bold text-wine-700">Ovulation</p><p class="text-wine-400">${fmt(ovuDate)}</p></div></li>
+    <li class="flex items-center gap-3"><span class="w-3 h-3 rounded-full phase-dot" style="background:#6E1F38"></span>
+      <div><p class="font-bold text-wine-700">Next period</p><p class="text-wine-400">${fmt(nextStart)}</p></div></li>
+    <li class="flex items-center gap-3"><span class="w-3 h-3 rounded-full phase-dot" style="background:#C97A8D"></span>
+      <div><p class="font-bold text-wine-700">Period after that</p><p class="text-wine-400">${fmt(addDays(nextStart, state.cycleLen))}</p></div></li>`;
+}
+
+function wheel(label, day){
+  document.getElementById('wheelPhase').textContent = label;
+  document.getElementById('wheelDay').textContent = day;
+  const C = state.cycleLen, P = state.periodMax, ovu = C-14;
+  const segs = [
+    {n:P, c:'#6E1F38'},
+    {n:Math.max(0, ovu-6-P), c:'#F58FAD'},
+    {n:7, c:'#C97A8D'},
+    {n:Math.max(0, C-ovu-1), c:'#FDD9E3'}
+  ];
+  let acc = -90, out = '';
+  segs.forEach(s=>{
+    const a0 = acc, a1 = acc + s.n/C*360;
+    const large = (a1-a0) > 180 ? 1 : 0;
+    const p = a => [50+42*Math.cos(a*Math.PI/180), 50+42*Math.sin(a*Math.PI/180)];
+    const [x0,y0] = p(a0), [x1,y1] = p(a1);
+    out += `<path d="M50 50 L${x0.toFixed(2)} ${y0.toFixed(2)} A42 42 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${s.c}"/>`;
+    acc = a1;
+  });
+  out += `<circle cx="50" cy="50" r="27" fill="white"/>`;
+  document.getElementById('wheelSvg').innerHTML = out;
+}
+
+/* Render: calendar */
+function renderCalendar(){
+  const y = state.viewDate.getFullYear(), m = state.viewDate.getMonth();
+  document.getElementById('calTitle').textContent =
+    state.viewDate.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const first = new Date(y, m, 1);
+  let lead = (first.getDay() + 6) % 7;      // Monday = 0
+  const dim = new Date(y, m+1, 0).getDate();
+  for(let i=0;i<lead;i++) grid.insertAdjacentHTML('beforeend','<div></div>');
+  const todayStr = new Date().toDateString();
+  for(let d=1; d<=dim; d++){
+    const date = new Date(y, m, d);
+    let cls = 'text-wine-500', marker = '';
+    if(state.lastStart){
+      const cd = dayOfCycle(date);
+      const ph = phaseForDay(cd);
+      cls = PHASES[ph.key].bg + ' ' + (PHASES[ph.key].text);
+      if(ph.key==='luteal' || ph.key==='follicular') cls += ' text-wine-700';
+      if(cd===1) marker = ' marker';
+      if(ph.key==='menstruation' && isMaybeDay(cd)) cls = 'maybe-day';
+    }
+    const todayCls = date.toDateString()===todayStr ? ' today' : '';
+    grid.insertAdjacentHTML('beforeend',
+      `<div class="cal-day ${cls}${todayCls}${marker}" title="${fmt(date)}">${d}</div>`);
+  }
+  document.getElementById('legend').innerHTML = Object.values(PHASES).map(p=>`
+    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full" style="background:${p.chip}; box-shadow:inset 0 0 0 1px #E3A9B6"></span>${p.name}</span>`).join('') +
+    `<span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full border-2 border-wine-500"></span>Today</span>
+     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-wine-800"></span>Cycle day 1</span>
+     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full border-2 border-dashed border-wine-300"></span>Period may end here</span>`;
+}
+
+/* Wiring */
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const v = document.getElementById('inpStart').value;
+  if(!v){ alert('Please pick the first day of her last period 🌸'); return; }
+  state.lastStart = new Date(v + 'T00:00:00');
+  state.cycleLen = Math.min(45, Math.max(20, +document.getElementById('inpCycle').value || 28));
+  let pMin = Math.min(10, Math.max(2, +document.getElementById('inpPeriodMin').value || 5));
+  let pMax = Math.min(10, Math.max(2, +document.getElementById('inpPeriodMax').value || 7));
+  if(pMax < pMin){ [pMin, pMax] = [pMax, pMin]; }
+  state.periodMin = pMin; state.periodMax = pMax;
+  saveState(); renderAll();
+});
+document.getElementById('btnPrev').addEventListener('click', ()=>{ state.viewDate.setMonth(state.viewDate.getMonth()-1); renderCalendar(); });
+document.getElementById('btnNext').addEventListener('click', ()=>{ state.viewDate.setMonth(state.viewDate.getMonth()+1); renderCalendar(); });
+
+function renderAll(){ renderCards(); renderStatus(); renderCalendar(); }
+
+/* Init */
+loadState();
+if(state.lastStart){
+  document.getElementById('inpStart').value = state.lastStart.toISOString().slice(0,10);
+  document.getElementById('inpCycle').value = state.cycleLen;
+  document.getElementById('inpPeriodMin').value = state.periodMin;
+  document.getElementById('inpPeriodMax').value = state.periodMax;
+}
+document.getElementById('todayLine').textContent =
+  'Today · ' + new Date().toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+renderAll();
+</script>
+</body>
+</html>
